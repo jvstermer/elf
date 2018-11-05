@@ -20,7 +20,13 @@ def set_system_values(path, section, value):
     
 
 def window(z, flux, wave, ivar, line_id):
-
+    # define wavelength range where to fit the emission line
+    # z : global redshift from file
+    # flux : qso flux
+    # wave : qso wavelength range
+    # line_id : which emission line to fit
+    # returns : result of the fit and the new redshift
+    
     range_window = float(set_system_values(loc, 'chi2 scan', 'window'))
     line = const.emission_lines[line_id]
     mask = ( wave >= go_to_lf(line - range_window /2, z) ) & ( wave <= go_to_lf(line + range_window /2, z) )
@@ -30,13 +36,6 @@ def window(z, flux, wave, ivar, line_id):
     
 
 def minimization(x, flux, ivar, line_lam):
-    # define wavelength range where to fit the emission line
-    # z : global redshift from file
-    # flux : qso flux
-    # wave : qso wavelength range
-    # line_id : which emission line to fit
-    # returns : result of the fit and the new redshift
-
 
     def model(a,b,c,d,e):
         return getattr(line_models, set_system_values(loc,'line model','model'))
