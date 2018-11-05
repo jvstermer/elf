@@ -7,7 +7,7 @@ import line_models
 import likelihood
 from configparser import ConfigParser
 
-loc = "./example.ini"
+loc = "./util.ini"
 
 def go_to_lf(lam, z):
     return np.log10( lam * (z+1) )
