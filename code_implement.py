@@ -30,6 +30,13 @@ def window(z, flux, wave, ivar, line_id):
     
 
 def minimization(x, flux, ivar, line_lam):
+    # define wavelength range where to fit the emission line
+    # z : global redshift from file
+    # flux : qso flux
+    # wave : qso wavelength range
+    # line_id : which emission line to fit
+    # returns : result of the fit and the new redshift
+
 
     def model(a,b,c,d,e):
         return getattr(line_models, set_system_values(loc,'line model','model'))
@@ -65,10 +72,3 @@ if qso1.id in z_dict and z > 2.1:
     plt.plot(qso1.wave, qso1.flux)
     fit, new_z = window( z, qso1.flux, qso1.wave, qso1.ivar,'Lya')
     plt.show()
-
-# define wavelength range where to fit the emission line
-    # z : global redshift from file
-    # flux : qso flux
-    # wave : qso wavelength range
-    # line_id : which emission line to fit
-    # returns : result of the fit and the new redshift
