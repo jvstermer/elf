@@ -13,6 +13,9 @@ def read_pix(init, file_id, qso_id):
 
 def read_drq(drq):
     vac = fitsio.FITS(drq)
-    z_dict = {x:y for x,y in zip(vac[1]['THING_ID'][:], vac[1]['Z'][:])}
+    try:
+        z_dict = {x:y for x,y in zip(vac[1]['THING_ID'][:], vac[1]['Z'][:])}
+    except:
+        z_dict = {x:y for x,y in zip(vac[1]['THING_ID'][:], vac[1]['Z_VI'][:])}    
     return z_dict
     
