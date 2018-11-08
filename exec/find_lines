@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import matplotlib.pyplot as plt
+from configparser import ConfigParser
+import sys
+from qsoemission import io, utils, qso, line_models, likelihood, const
+
+if len(sys.argv) != 2:
+    print('usage: find_lines config.ini')
+    sys.exit(0)
+
+z_file = utils.get_system_values(sys.argv[1], 'input','z_file')
+print("INFO: reading z_file from {}".format(z_file))
+z_dict = io.read_drq(z_file)
+
+window = utils.get_system_values(sys.argv[1], 'chi2 scan', 'window')
+window = float(window)
+print("INFO: window to fit: {} (Angstrom)".format(window))
+
+filename = utils.get_system_values(sys.argv[1], 'input', 'filename')
+qso_id = int(utils.get_system_values(sys.argv[1], 'input','qso_id'))
+qso1= qso.qso(filename, qso_id)
+z = z_dict[qso1.id]
+print(qso1.id in z_dict, z)
+plt.plot(qso1.wave, qso1.flux)
+
+print("INFO: reading data from {}".format(filename))
+print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
+
+like = utils.get_system_values(sys.argv[1], 'likelihood method', 'method')
+print("INFO: using likelihood method {}".format(like))
+like = getattr(likelihood, like)
+
+line_model = utils.get_system_values(sys.argv[1], 'line model', 'model')
+print("INFO: using line model {}".format(line_model))
+line_model = getattr(line_models, line_model)
+
+for l in const.emission_lines:
+    wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
+
+    if len(wa)<10:
+        print("line {} not within observed wavelength range, skipping".format(l))
+        continue
+    m, fmin = utils.minimize(like, line_model, wa, fl, iv, 
+                            a=1, b=wa.mean(), c=10., d=0, e=0)
+    plt.plot(wa, line_model(*[m.values[p] for p in m.parameters], wave=wa),"r", lw=2)
+plt.show()
