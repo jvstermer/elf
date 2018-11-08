@@ -2,9 +2,8 @@ import numpy as np
 import glob
 import fitsio
 
-def read_pix(init, file_id, qso_id):
-    to_open = glob.glob(init)
-    h = fitsio.FITS(to_open[file_id])
+def read_pix(filename, qso_id):
+    h = fitsio.FITS(filename)
     flux =  h['FLUX'][:,qso_id].T[0]
     wave = h['LOGLAM_MAP'][:] # in LF
     ivar = h['IVAR'][:,qso_id].T[0]
