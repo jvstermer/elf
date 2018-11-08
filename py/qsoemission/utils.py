@@ -47,12 +47,15 @@ def window(z, wave, flux, ivar, line_id, range_window):
 
     return wave[mask], flux[mask], ivar[mask]
     
-def minimization(likelihood, model, wave, flux, ivar, **init_pars):
+def minimize(likelihood, model, wave, flux, ivar, **init_pars):
 
     like = partial(likelihood, line_model=model, wave=wave, flux=flux, ivar=ivar)
-    print(list(init_pars.keys()))
+
+    par_names = [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
+    print(par_names)
+
     m = iminuit.Minuit(like,
-        forced_parameters = list(init_pars.keys()),
+        forced_parameters = par_names,
         errordef = 1,
         **init_pars)
 

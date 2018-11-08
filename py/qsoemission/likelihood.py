@@ -1,6 +1,6 @@
 import numpy as np
 
-def chi_squared(wave=None, flux=None, ivar=None, line_model=None, *args):
+def chi_squared(*args, **kwargs):
     '''
     Calculates the chi2 between the flux and the model
     using ivar as inverse variances
@@ -16,6 +16,11 @@ def chi_squared(wave=None, flux=None, ivar=None, line_model=None, *args):
         the chi2 (float)
     '''
     
-    res = (flux-line_model(wave=wave, **kwargs))*np.sqrt( ivar )
+    line_model = kwargs['line_model']
+    wave = kwargs['wave']
+    flux = kwargs['flux']
+    ivar = kwargs['ivar']
+
+    res = (flux-line_model(*args, wave=wave))*np.sqrt( ivar )
     return res.dot(res.T)
 # add new method

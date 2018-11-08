@@ -10,7 +10,7 @@ import numpy as np
     # returns gaussaian + linear 
     return a * np.exp(-(x-b)**2 / 2 * c**2 ) + d * x + e"""
     
-def gaussian_lin(wave, **kwargs):
+def gaussian_lin(a, b, c, d, e, **kwargs):
     #takes array of values
     # a : amplitude of the gaussian
     # b : mean of the gaussian
@@ -19,10 +19,5 @@ def gaussian_lin(wave, **kwargs):
     # e : intercept of the linear function
     # returns gaussaian + linear 
 
-    a = kwargs['a']
-    b = kwargs['b']
-    c = kwargs['c']
-    d = kwargs['d']
-    e = kwargs['e']
-
+    wave = kwargs['wave']
     return a*np.exp(-(wave-b)**2/2/c**2 ) + d*wave + e

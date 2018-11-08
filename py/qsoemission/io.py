@@ -5,7 +5,7 @@ import fitsio
 def read_pix(filename, qso_id):
     h = fitsio.FITS(filename)
     flux =  h['FLUX'][:,qso_id].T[0]
-    wave = h['LOGLAM_MAP'][:] # in LF
+    wave = 10**h['LOGLAM_MAP'][:] # in LF
     ivar = h['IVAR'][:,qso_id].T[0]
     qso_num = h['THING_ID_MAP'][:][qso_id]
     return flux, ivar, wave, qso_num
