@@ -1,62 +1,48 @@
-import matplotlib.pyplot as plt ; import numpy as np ; import scipy as sp
-import fitsio ; import glob ; import iminuit
+#!/usr/bin/env python
+from __future__ import print_function
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.special as sps
+import iminuit
+from configparser import ConfigParser
+import sys
+import glob
+import lib
+from py.qsoemission import io, utils, qso, line_models, likelihood, const
 
-"""def minimization(x,flux, line, sig, ivar):"""
+if len(sys.argv) != 2:
+    print('usage: find_lines config.ini')
+    sys.exit(0)
 
-    #def dist(a):
-        #return 1
+z_file = utils.get_system_values(sys.argv[1], 'input','z_file')
+z_dict = io.read_drq(z_file)
 
-    def vrai(c, sig):
-        m = np.zeros(len(flux))
-        def integrand(flux, c, a, sig):
-            return np.exp( - ( flux - c * a ) **2 / ( 2 * sig **2 ) ) # * dist(a)
-        for i in range(len(flux)):
-            m[i], _ = quad( integrand, 0, 1, args = (flux[i], c[i], sig) )
-        return np.prod(m)
+window = utils.get_system_values(sys.argv[1], 'chi2 scan', 'window')
+window = float(window)
 
-    """mig = iminuit.Minuit(vrai, pedantic = False)
-    mig.print_param()
-    fmin = mig.migrad()
-    inte = list(mig.values.values())
-    print(inte)
-    return vrai(inte),inte[1]"""
+filename = glob.glob(utils.get_system_values(sys.argv[1], 'input', 'filename'))[int(utils.get_system_values(sys.argv[1], 'input', 'pix_file_id'))]
+qso_id = int(utils.get_system_values(sys.argv[1], 'input','qso_id'))
+qso1= qso.qso(filename, qso_id)
+z = z_dict[qso1.id]
+
+def line_model(a, b, c, d, e, wave):
+    return a * np.exp(-(wave-b)**2 / 2 * c**2 ) + d * wave + e
+
+def vrai(a, b, c, d, e, line_model, wave, flux, ivar):
     
-#################Where to do the fit and plot it######################### 
-def window(z, flux, wave, line, sigma, range_window,ivar):
-    mask = ( wave >= np.log10((line-range_window/2) * (z+1)) ) & ( wave <=np.log10((line+range_window/2) * (z+1)) ) #RF -> LF
+    v = line_model(a, b, c, d, e, wave)
     
-    mi, b = minimization(wave[mask], flux[mask], np.log10(line * (z+1)), sigma, ivar[mask])
-    new = 10**b / line - 1
-    plt.plot(wave[mask], mi)
+    x1 = flux / ( np.sqrt(2) * ivar)
+    x2 = (flux - line_model(a, b, c, d, e, wave)) / ( np.sqrt(2) * ivar)
+    y = x1 - x2
+    
+    dist = np.sqrt( np.pi / 2 ) * ivar * y / v
+    return -np.log(np.prod(dist))
 
-    return new
 
-##############get data#####################
-list_of_filenames = glob.glob( '../original_files/pix/pix_*.fits' )
-drq = fitsio.FITS('../original_files/DR14Q_v4_4.fits')
-
-######DRQ############
-z_dict = {x:y for x,y in zip(drq[1]['THING_ID'][:], drq[1]['Z'][:])}
-
-names = ['La','MgII', 'CIII', 'CIV' ]
-lines = [1215.24, 2799.117, 1908.734, 1549.48]
-
-h = fitsio.FITS(list_of_filenames[0])
-j = 480
-z = z_dict[h['THING_ID_MAP'][:][j]]
-
-new_z = []
-
-if h['THING_ID_MAP'][:][j] in z_dict and z > 2.1:
-    flux =  h['FLUX'][:,j].T[0]
-    wave = h['LOGLAM_MAP'][:] # in LF
-    ivar = h['IVAR'][:,j].T[0]
-    plt.plot(wave,flux, alpha = .5)
-    red = window(z, flux, wave, lines[0], 3, 200, ivar)
-    """for i in range(len(lines)):
-        red = window(z, flux, wave, lines[i], 3, 200, ivar)
-        new_z.append(red)
-        print (chi/(card - 5))"""
-    ##########Plot############################################
-    #plt.show()
+l = 'Lya'
+wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
+#a = 25.785997251685714 ; b = 4307.586484952259 ; c = 12.5319602614264 ; d = -0.0001553733277506994 ; e = 4.868459789227105 
+#print(vrai(a, b, c, d, e, line_model, wa, fl, iv))
+m, fmin = utils.minimize(vrai, line_model, wa, fl, iv, a=25, b=wa.mean(), c=10., d=0, e=5, pedantic = False)
 

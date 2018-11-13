@@ -23,7 +23,7 @@ qso_id = int(utils.get_system_values(sys.argv[1], 'input','qso_id'))
 qso1= qso.qso(filename, qso_id)
 z = z_dict[qso1.id]
 print(qso1.id in z_dict, z)
-plt.plot(qso1.wave, qso1.flux)
+#plt.plot(qso1.wave, qso1.flux)
 
 print("INFO: reading data from {}".format(filename))
 print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
@@ -36,6 +36,7 @@ line_model = utils.get_system_values(sys.argv[1], 'line model', 'model')
 print("INFO: using line model {}".format(line_model))
 line_model = getattr(line_models, line_model)
 
+print("INFO: reduced chi squared of emission line: ")
 for l in const.emission_lines:
     wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
 
@@ -43,6 +44,8 @@ for l in const.emission_lines:
         print("line {} not within observed wavelength range, skipping".format(l))
         continue
     m, fmin = utils.minimize(like, line_model, wa, fl, iv, 
-                            a=1, b=wa.mean(), c=10., d=0, e=0, pedantic = False)
-    plt.plot(wa, line_model(*[m.values[p] for p in m.parameters], wave=wa),"r", lw=2)
+                            b=wa.mean(), c=10., d=0, e=0,pedantic = False) 
+    print("     {} is".format(l), like(*[m.values[p] for p in m.parameters], line_model = line_model, wave=wa, flux = fl, ivar = iv) ,'/', (len(wa) - len(m.parameters)))
+   
+    plt.plot(wa, line_model(*[m.values[p] for p in m.parameters], wave=wa),"g", lw=2)
 plt.show()
