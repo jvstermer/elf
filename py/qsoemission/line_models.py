@@ -23,3 +23,4 @@ def lorentzian_lin(a, b, c, d, e, **kwargs):
     
     wave = kwargs['wave']
     return a / np.pi * .5 * c / ( (wave - b)**2 + (c/2)**2 ) + d * wave + e
+

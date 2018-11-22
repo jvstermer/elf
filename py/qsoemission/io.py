@@ -9,6 +9,8 @@ def read_pix(h, qso_id):
     qso_num = h['THING_ID_MAP'][:][qso_id]
     return flux, ivar, wave, qso_num
 
+#def read_delats(h,qso_id):
+
 def read_drq(drq):
     vac = fitsio.FITS(drq)
     try:

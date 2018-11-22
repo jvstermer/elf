@@ -7,11 +7,11 @@ emission_lines = {
 
 line_dict = {
     'Lya_z' : [],
-    'Lya_sn' : [],
+    'Lya_err' : [],
     'CIII_z' : [],
-    'CIII_sn' : [],
+    'CIII_err' : [],
     'CIV_z' : [],
-    'CIV_sn' : [],
+    'CIV_err' : [],
     'MgII_z' : [],
-    'MgII_sn' : [],
+    'MgII_err' : [],
 }
