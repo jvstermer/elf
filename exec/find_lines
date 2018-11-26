@@ -13,68 +13,61 @@ if len(sys.argv) != 2:
     sys.exit(0)
 
 z_file = utils.get_system_values(sys.argv[1], 'input','z_file')
-print("INFO: reading z_file from {}".format(z_file))
+#print("INFO: reading z_file from {}".format(z_file))
 z_dict = io.read_drq(z_file)
 
-window = utils.get_system_values(sys.argv[1], 'chi2 scan', 'window')
+window = utils.get_system_values(sys.argv[1], 'scan', 'window')
 window = float(window)
-print("INFO: window to fit: {} (Angstrom)".format(window))
+#print("INFO: window to fit: {} (Angstrom)".format(window))
 
-like = utils.get_system_values(sys.argv[1], 'likelihood method', 'method')
-print("INFO: using likelihood method {}".format(like))
+like = utils.get_system_values(sys.argv[1], 'likelihood method', 'method1')
+like_new = utils.get_system_values(sys.argv[1], 'likelihood method', 'method2')
+#print("INFO: using likelihood method {} then {}".format(like, like_new))
+
 like = getattr(likelihood, like)
-
-like_new = utils.get_system_values(sys.argv[1], 'likelihood method', 'method new')
-print("INFO: using likelihood method {}".format(like_new))
 like_new = getattr(likelihood, like_new)
 
-line_model = utils.get_system_values(sys.argv[1], 'line model', 'model')
-print("INFO: using line model {}".format(line_model))
-line_model = getattr(line_models, line_model)
+model = utils.get_system_values(sys.argv[1], 'line model', 'model')
+#print("INFO: using line model {}".format(line_model))
+line_model = getattr(line_models, model)
 
 list_file = glob.glob( utils.get_system_values(sys.argv[1],'input','filename'))
-line_dict = const.line_dict
+
+line_dict = copy.deepcopy(const.line_dict)
 
 for filename in list_file[4:5]:
     file_to_read = fitsio.FITS(filename)
     
-    print("INFO: reading data from {}".format(filename))
+    #print("INFO: reading data from {}".format(filename))
+    
     for qso_id in range (len(file_to_read[0][:])):
         print(qso_id+1,'/',len(file_to_read[0][:]))
         qso1= qso.qso(file_to_read, qso_id)
         z = z_dict[qso1.id]
         plt.plot(qso1.wave, qso1.flux)
 
-        print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
+        #print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
 
         for l in const.emission_lines:
             wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
 
             if len(wa)<10:
-                print("line {} not within observed wavelength range, skipping".format(l))
-                line_dict[l+'_z'].append(-1.)
-                line_dict[l+'_sn'].append(-1.)
+                #print("line {} not within observed wavelength range, skipping".format(l))
+                """line_dict[l+'_z'].append(-1.)
+                line_dict[l+'_err'].append(-1.)"""
                 continue
-                
-            m, fmin = utils.minimize(like, line_model, wa, fl, iv, 
-                                    a=1, b=wa.mean(), c=10., d=0, e=0,pedantic = False)
             
-            mi, fmini = utils.minimize(like_new, line_model, wa, fl, iv,
-                                    a = m.values['a'] ,b = m.values['b'],
-                                    c = m.values['c'],d = m.values['d'],
-                                    e = m.values['e'], pedantic = False)
+            m, fmin, mi, fmini = utils.double_minimize(like, like_new, 
+                                   line_model, wa, fl, iv, 
+                                   a = 1, b = wa.mean(), c = 10.,d = 0, e = 0)
+
+            #line_dict = io.write_in_dict(line_dict, l, mi)
+            """utils.plot_fit(wa, line_model, m, 'r', None)
+            utils.plot_fit(wa, line_model, mi, 'g', None)
             
-            line_dict[l+'_z'].append(m.values['b'] / const.emission_lines[l] - 1)
-            if m.errors['a'] == 0:
-                line_dict[l+'_sn'].append(m.values['a'])
-            else:
-                line_dict[l+'_sn'].append(m.values['a'] / m.errors['a'])
-            
-            plt.plot(wa, line_model(*[m.values[p] for p in m.parameters], wave=wa),"r", lw=2)
-            plt.plot(wa, line_model(*[mi.values[p] for p in mi.parameters], wave=wa),"g", lw=2)
             plt.show()
         input('next [enter]')
-        plt.clf()
+        #plt.clf()"""
     print("INFO: done reading data from {}".format(filename))
-    
-io.write_fits(utils.get_system_values(sys.argv[1],'output','path') + 'new_z.fits', line_dict)
+  
+#io.write_fits(utils.get_system_values(sys.argv[1],'output','name') , line_dict)

@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 from configparser import ConfigParser
 import iminuit
+import matplotlib.pyplot as plt
 
 from . import const
 
@@ -48,7 +49,6 @@ def window(z, wave, flux, ivar, line_id, range_window):
     return wave[mask], flux[mask], ivar[mask]
     
 def minimize(likelihood, model, wave, flux, ivar, **init_pars):
-
     like = partial(likelihood, line_model=model, wave=wave, flux=flux, ivar=ivar)
 
     par_names = [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
@@ -56,9 +56,27 @@ def minimize(likelihood, model, wave, flux, ivar, **init_pars):
 
     m = iminuit.Minuit(like,
         forced_parameters = par_names,
-        errordef = 1,
+        errordef = 1, pedantic = False,
         **init_pars)
-
+    
     fmin  = m.migrad()
-
     return m,fmin
+
+def double_minimize(likelihood1, likelihood2, model, wave, flux, ivar, **init_pars1):
+    
+    par_names = [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
+    
+    m1, fmin1 = minimize(likelihood1, model, wave, flux, ivar, **init_pars1)
+    
+    init_pars2 = {x:y for x,y in zip(par_names, m1.values.values())}
+
+    m2, fmin2 = minimize(likelihood2, model, wave, flux, ivar, **init_pars2)
+    return m1, fmin1, m2, fmin2
+
+def plot_fit(wave, model, m, color, lab):
+    plt.plot(wave, model(*[m.values[p] for p in m.parameters], wave=wave), color, lw=2, alpha = .8, label = lab)
+    
+def get_chi(like, model, m, wave, flux, ivar):
+    return str(like(*[m.values[p] for p in m.parameters], line_model = model, wave=wave, flux = flux, ivar = ivar)) +' / ' + str((len(wave) - len(m.parameters)))
+
+    

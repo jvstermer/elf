@@ -55,6 +55,7 @@ def like_new(*args, **kwargs):
     y = sps.erfc(flux / ( np.sqrt(2) * ivar)) - sps.erfc((flux - v) / ( np.sqrt(2) * ivar))
     
     mask1 = y != 0
-
-    return np.sum(np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
+    
+    return np.sum(np.log(ivar[mask1]) + np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
+    #return np.sum( np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
 
