@@ -4,7 +4,7 @@ import numpy as np
 from configparser import ConfigParser
 import iminuit
 import matplotlib.pyplot as plt
-from py.qsoemission import likelihood
+from py.qsoemission import likelihood, line_models
 
 from . import const
 
@@ -35,8 +35,25 @@ def pick_method(method):
 
 def get_pars(model):
     return [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
+
+def get_parnames(model_label, system, model):
     
-    
+    if model_label == 'spl':
+        nodes = int(get_system_values(system, 'line model', 'nodes'))
+        pars_model = ['par_{}'.format(i) for i in range(nodes)]
+        noise = None
+        pars_noise = []
+        noise_label = None
+    else:
+        pars_model = get_pars(model)
+        noise_label = get_system_values(system, 'bkg model', 'bkg')
+        noise = getattr(line_models, noise_label)
+        pars_noise = get_pars(noise)
+        noise = line_models.line_model(noise, pars_noise)
+        
+    model = line_models.line_model(model, pars_model)
+    return model, noise, noise_label, pars_model, pars_noise
+        
 def window(z, wave, flux, ivar, line_id, range_window):
     '''
     Restrict the data to a window around an emission line
@@ -59,11 +76,11 @@ def window(z, wave, flux, ivar, line_id, range_window):
 
     return wave[mask], flux[mask], ivar[mask]
         
-def minimize(likelihood, add, model, noise, wave, flux, ivar, x = None, **init_pars):
+def minimize(likelihood, line, model, wave, flux, ivar, noise=None, x = None, **init_pars):
 
-    like = partial(likelihood, line = add, wave = wave, flux = flux, ivar = ivar, x = x, model = model, noise = noise)
+    like = partial(likelihood, line = line, wave = wave, flux = flux, ivar = ivar, x = x, model = model, noise = noise)
     
-    par_names = add.parnames
+    par_names = line.parnames
     
     m = iminuit.Minuit(like, 
                        forced_parameters = par_names, 
@@ -72,22 +89,23 @@ def minimize(likelihood, add, model, noise, wave, flux, ivar, x = None, **init_p
     fmin  = m.migrad()
     return m, fmin
 
-def double_minimize(likelihood1, line, model, noise, wave, flux, ivar, x = None, likelihood2 = None, **init_pars):
+def double_minimize(likelihood1, line, model,  wave, flux, ivar, noise=None, x = None, likelihood2 = None, **init_pars):
     if likelihood2 == None:
-        m, fmin = minimize(likelihood1, line, model, noise, wave, flux, ivar, x, **init_pars)
+        m, fmin = minimize(likelihood1, line, model, wave, flux, ivar, noise, x, **init_pars)
     
-    if likelihood2 != None:
-        m, fmin = minimize(likelihood2, line, model, noise, wave, flux, ivar, x, **init_pars)
-        par_names = model.parnames
+    else:
+        m, fmin = minimize(likelihood2, line, model, wave, flux, ivar, noise, x, **init_pars)
+        par_names = line.parnames
         init_pars2 = {x:y for x,y in zip(par_names, m.values.values())}
-        m, fmin = minimize(likelihood1, line, model, noise, wave, flux, ivar, x, **init_pars2)
+        
+        m, fmin = minimize(likelihood1, line, model, wave, flux, ivar, noise, x, **init_pars2)
 
     return m, fmin
 
 def plot_fit(wave,line, model, noise, m, color, x=None, lab=None):
     plt.plot(wave, line(*[m.values[p] for p in m.parameters], wave=wave, x=x, model=model, noise= noise), color, lw=2, alpha = .8, label = lab)
     
-def get_chi(like, line, model, noise, m, wave, flux, ivar, x=None):
+def get_chi(like, line, model, m, wave, flux, ivar, noise = None, x=None):
     return str(like(*[m.values[p] for p in m.parameters], line = line, model=model, noise= noise, wave=wave, flux = flux, ivar = ivar, x = x)) +' / ' + str((len(wave) - len(m.parameters)))
 
 def rebin(x, wind, wave, flux):
