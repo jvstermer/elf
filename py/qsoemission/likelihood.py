@@ -40,21 +40,24 @@ def new_like(*args, **kwargs):
     Returns:
         the likelihood (float)
     '''
-    
-        
+     
     line = kwargs['line']
     ivar = kwargs['ivar']
+    #print(line)
     
     mask = ivar != 0
     ivar = ivar[mask]
     flux = kwargs['flux'][mask]
-
+    
     v = line(*args,**kwargs)
     v = v[mask]
+    
     y = sps.erfc(flux / ( np.sqrt(2) * ivar)) - sps.erfc((flux - v) / ( np.sqrt(2) * ivar))
     
     mask1 = y != 0
     
-    return np.sum(np.log(ivar[mask1]) + np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
+    x = np.sum(np.log(ivar[mask1]) + np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
+    
+    return x
     
 

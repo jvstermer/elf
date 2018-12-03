@@ -12,7 +12,11 @@ class line_model:
 def add(*args, **kwargs ):
     model = kwargs['model']
     noise = kwargs['noise']
-    return model(*[p for p in args[:len(model.parnames)]], **kwargs) + noise(*[p for p in args[len(model.parnames):]], **kwargs)
+    
+    x = model(*[p for p in args[:len(model.parnames)]], **kwargs)
+    if noise != None:
+        x += noise(*[p for p in args[len(model.parnames):]], **kwargs)
+    return x
 
 def linear( d, e, **kwargs):
     wave = kwargs['wave']
@@ -55,5 +59,4 @@ def asym_lorentzian(a, b, c, c2, **kwargs):
 def spl(*pars, **kwargs):
         wave = kwargs['wave']
         x = kwargs['x']
-
         return interpolate.splev( wave, interpolate.splrep(x, pars, s=0, k=3))
