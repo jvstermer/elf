@@ -3,45 +3,87 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
 from configparser import ConfigParser
 import sys
-from qsoemission import io, utils, qso, line_models, likelihood, const
+import fitsio
+import numpy as np
+import iminuit
+import glob
+import scipy.interpolate as interpolate
+from py.qsoemission import io, utils, qso, line_models, likelihood, const
+from functools import partial
 
 if len(sys.argv) != 2:
     print('usage: find_lines config.ini')
     sys.exit(0)
 
 z_file = utils.get_system_values(sys.argv[1], 'input','z_file')
-print("INFO: reading z_file from {}".format(z_file))
+#print("INFO: reading z_file from {}".format(z_file))
 z_dict = io.read_drq(z_file)
 
-window = utils.get_system_values(sys.argv[1], 'chi2 scan', 'window')
+method = utils.get_system_values(sys.argv[1], 'likelihood method', 'method')
+like = getattr(likelihood, method)
+
+like_0 = utils.pick_method(method)
+
+model_label = utils.get_system_values(sys.argv[1], 'line model', 'model')
+print("INFO: using line model {}".format(model_label))
+model = getattr(line_models, model_label)
+
+if model_label != 'spl':
+    pars_model = utils.get_pars(model)
+else:
+    nodes = int(utils.get_system_values(sys.argv[1], 'line model', 'nodes'))
+    pars_model = ['par_{}'.format(i) for i in range(nodes)]
+    
+model = line_models.line_model(model, pars_model)
+
+noise = utils.get_system_values(sys.argv[1], 'bkg model', 'bkg')
+noise = getattr(line_models, noise)
+pars_noise = utils.get_pars(noise)
+noise = line_models.line_model(noise, pars_noise)
+
+parnames = pars_model + pars_noise
+add = line_models.line_model(line_models.add, parnames)
+
+window = utils.get_system_values(sys.argv[1], 'scan', 'window')
 window = float(window)
 print("INFO: window to fit: {} (Angstrom)".format(window))
 
-filename = utils.get_system_values(sys.argv[1], 'input', 'filename')
-qso_id = int(utils.get_system_values(sys.argv[1], 'input','qso_id'))
-qso1= qso.qso(filename, qso_id)
-z = z_dict[qso1.id]
-print(qso1.id in z_dict, z)
-plt.plot(qso1.wave, qso1.flux)
+line_dict = const.line_dict
 
-print("INFO: reading data from {}".format(filename))
-print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
+list_file = glob.glob( utils.get_system_values(sys.argv[1],'input','filename'))
 
-like = utils.get_system_values(sys.argv[1], 'likelihood method', 'method')
-print("INFO: using likelihood method {}".format(like))
-like = getattr(likelihood, like)
+for file_to_open in list_file:
+    filename = fitsio.FITS(file_to_open)
+    
+    print("INFO: reading data from {}".format(file_to_open))
+    
+    for qso_id in range(len(filename[0][:])):
+        print('qso',qso_id+1,'/',len(filename[0][:]))
+        qso1= qso.qso(filename, qso_id)
+        if qso1.id in z_dict:
+            z = z_dict[qso1.id]
+            plt.plot(qso1.wave, qso1.flux)
 
-line_model = utils.get_system_values(sys.argv[1], 'line model', 'model')
-print("INFO: using line model {}".format(line_model))
-line_model = getattr(line_models, line_model)
+            #print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
 
-for l in const.emission_lines:
-    wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
+            for l in const.emission_lines:
+                wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
 
-    if len(wa)<10:
-        print("line {} not within observed wavelength range, skipping".format(l))
-        continue
-    m, fmin = utils.minimize(like, line_model, wa, fl, iv, 
-                            a=1, b=wa.mean(), c=10., d=0, e=0)
-    plt.plot(wa, line_model(*[m.values[p] for p in m.parameters], wave=wa),"r", lw=2)
-plt.show()
+                if len(wa)<10:
+                    #print("line {} not within observed wavelength range, skipping".format(l))
+                    #line_dict[l+'_z'].append(-1.)
+                    #line_dict[l+'_err'].append(-1.)
+                    continue
+                
+                x_node, init_pars = utils.init_model(wa, fl, window, add, model_label)
+    
+                m,_ = utils.double_minimize(like, add, model, noise, wa, fl, iv, x_node, like_0, **init_pars)
+                #print("{} {} : {}".format(method, l, utils.get_chi(like, add, model, noise, m, wa, fl, iv, x_node)))  
+                utils.plot_fit(wa, add, model, noise, m, 'r', x_node)
+                #line_dict = io.write_in_dict(model_label, model, line_dict, l, m, wa, x_node)
+            #plt.show()
+        plt.figure()
+        #plt.clf()"""
+    #print("INFO: done reading data from {}".format(filename))
+plt.show() 
+#io.write_fits(utils.get_system_values(sys.argv[1],'output','name')+'/'+ model_label+'-'+method, line_dict)

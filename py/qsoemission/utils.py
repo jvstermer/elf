@@ -3,6 +3,8 @@ from functools import partial
 import numpy as np
 from configparser import ConfigParser
 import iminuit
+import matplotlib.pyplot as plt
+from py.qsoemission import likelihood
 
 from . import const
 
@@ -17,7 +19,6 @@ def go_to_lf(wave, z):
     Returns:
         log10(lab wavelength)
     '''
-
     return wave*(1+z)
 
 def get_system_values(path, section, value):
@@ -25,6 +26,17 @@ def get_system_values(path, section, value):
     cp.read(path)
     return cp.get(section,value)
 
+def pick_method(method):
+    if method != "chi_squared": 
+        like_0 = likelihood.chi_squared
+    if method == "chi_squared":
+        like_0 = None
+    return like_0
+
+def get_pars(model):
+    return [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
+    
+    
 def window(z, wave, flux, ivar, line_id, range_window):
     '''
     Restrict the data to a window around an emission line
@@ -46,19 +58,64 @@ def window(z, wave, flux, ivar, line_id, range_window):
     mask = (wave >= go_to_lf(line-range_window/2, z)) & (wave <= go_to_lf(line+range_window/2, z))
 
     return wave[mask], flux[mask], ivar[mask]
+        
+def minimize(likelihood, add, model, noise, wave, flux, ivar, x = None, **init_pars):
+
+    like = partial(likelihood, line = add, wave = wave, flux = flux, ivar = ivar, x = x, model = model, noise = noise)
     
-def minimize(likelihood, model, wave, flux, ivar, **init_pars):
-
-    like = partial(likelihood, line_model=model, wave=wave, flux=flux, ivar=ivar)
-
-    par_names = [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
-    print(par_names)
-
-    m = iminuit.Minuit(like,
-        forced_parameters = par_names,
-        errordef = 1,
-        **init_pars)
-
+    par_names = add.parnames
+    
+    m = iminuit.Minuit(like, 
+                       forced_parameters = par_names, 
+                       errordef = 1, pedantic = False, 
+                       **init_pars)
     fmin  = m.migrad()
+    return m, fmin
 
-    return m,fmin
+def double_minimize(likelihood1, line, model, noise, wave, flux, ivar, x = None, likelihood2 = None, **init_pars):
+    if likelihood2 == None:
+        m, fmin = minimize(likelihood1, line, model, noise, wave, flux, ivar, x, **init_pars)
+    
+    if likelihood2 != None:
+        m, fmin = minimize(likelihood2, line, model, noise, wave, flux, ivar, x, **init_pars)
+        par_names = model.parnames
+        init_pars2 = {x:y for x,y in zip(par_names, m.values.values())}
+        m, fmin = minimize(likelihood1, line, model, noise, wave, flux, ivar, x, **init_pars2)
+
+    return m, fmin
+
+def plot_fit(wave,line, model, noise, m, color, x=None, lab=None):
+    plt.plot(wave, line(*[m.values[p] for p in m.parameters], wave=wave, x=x, model=model, noise= noise), color, lw=2, alpha = .8, label = lab)
+    
+def get_chi(like, line, model, noise, m, wave, flux, ivar, x=None):
+    return str(like(*[m.values[p] for p in m.parameters], line = line, model=model, noise= noise, wave=wave, flux = flux, ivar = ivar, x = x)) +' / ' + str((len(wave) - len(m.parameters)))
+
+def rebin(x, wind, wave, flux):
+    A = wave - x[:,None]
+    w = (A >= -wind/2) & (A < wind/2) # np.abs(A < dlam/2) #
+    A[w] = 1
+    A[~w] = 0
+    norma  = A.sum(axis = 1) # norm for each row
+    norm_nul = (norma == 0) #create mask where the nrom is 0
+    norma[norm_nul] = 1 # if norm ==0 set it to 1 for division
+    A = A / norma[:,None]
+    flux = A.dot(flux)
+    return flux
+
+def init_model(wave, flux, window, model, model_label):
+    par_names = model.parnames
+    if model_label == 'spl':
+        pos_max = wave[np.where(flux == flux.max())[0][0]]
+        x_node = np.arange(pos_max - window, pos_max + window, 2*window/len(par_names))
+        if len(x_node) != len(par_names):
+            x_node = x_node[1:]
+        tik = rebin(x_node, 10, wave, flux)
+        init_pars = {x:y for x,y in zip(par_names, tik)}
+        plt.plot(x_node, tik,'.k')
+    else:
+        init_pars = {x:y for x,y in zip(par_names, [1, wave.mean(), 10, 0, 0])}
+        x_node = None
+        if model_label == 'asym_lorentzian':
+            init_pars['c2'] = 10
+    return x_node, init_pars
+    
