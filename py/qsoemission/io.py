@@ -26,12 +26,17 @@ def read_drq(drq):
         z_dict = {x:y for x,y in zip(vac[1]['THING_ID'][:], vac[1]['Z_VI'][:])}    
     return z_dict
 
-def write_in_dict(dici, l, m ):
-    dici[l+'_z'].append(m.values['b'] / const.emission_lines[l] - 1)
-    
-    if m.errors['a'] == 0:
-        m.errors['a'] = 1
-    dici[l+'_err'].append(m.values['a'] / m.errors['a'])
+def write_in_dict(model_label, model, dici, l, m, wa, x_node= None ):
+    if model_label == 'spl':
+        y = model(*[m.values[p] for p in m.parameters], wave=wa, x=x_node)
+        amp = y.max()
+        dici[l+'_z'].append(wa[np.where(y == amp)[0][0]] / const.emission_lines[l] - 1)
+        dici[l+'_err'].append(-1)#amp / m.errors['a'])     
+    else:   
+        dici[l+'_z'].append(m.values['b'] / const.emission_lines[l] - 1)
+        if m.errors['a'] == 0:
+            m.errors['a'] = 1
+        dici[l+'_err'].append(m.values['a'] / m.errors['a'])
     
     """if m.errors['a'] == 0:
         dici[l+'_err'].append(m.values['a'])
