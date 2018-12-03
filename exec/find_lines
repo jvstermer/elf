@@ -47,7 +47,7 @@ line_dict = const.line_dict
 
 list_file = glob.glob( utils.get_system_values(sys.argv[1],'input','filename'))
 
-for file_to_open in list_file:
+for file_to_open in list_file[4:5]:
     filename = fitsio.FITS(file_to_open)
     
     print("INFO: reading data from {}".format(file_to_open))
