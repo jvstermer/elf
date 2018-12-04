@@ -7,10 +7,12 @@ import fitsio
 import numpy as np
 import iminuit
 import glob
+import time
 import scipy.interpolate as interpolate
-from py.qsoemission import io, utils, qso, line_models, likelihood, const
+from elf import io, utils, qso, line_models, likelihood, const
 from functools import partial
 
+t1 = time.time()
 if len(sys.argv) != 2:
     print('usage: find_lines config.ini')
     sys.exit(0)
@@ -47,7 +49,7 @@ line_dict = const.line_dict
 
 list_file = glob.glob( utils.get_system_values(sys.argv[1],'input','filename'))
 
-for file_to_open in list_file:
+for file_to_open in list_file[3:5]:
     filename = fitsio.FITS(file_to_open)
     
     print("INFO: reading data from {}".format(file_to_open))
@@ -80,4 +82,6 @@ for file_to_open in list_file:
      
     print("INFO: done reading data from {}".format(file_to_open))
 #plt.show() 
-io.write_fits(utils.get_system_values(sys.argv[1],'output','name')+'/'+out_name, line_dict)
+print(time.time() - t1)
+io.write_fits(utils.get_system_values(sys.argv[1],'output','name')+'/'+out_name+'restricted'+'.fits', line_dict)
+

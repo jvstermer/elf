@@ -1,7 +1,7 @@
 import numpy as np
 import glob
 import fitsio
-from py.qsoemission import const
+from elf import const
 
 def read_delta(j):
     ivar = j['WEIGHT'][:]

@@ -15,3 +15,5 @@ line_dict = {
     'MgII_z' : [],
     'MgII_err' : [],
 }
+
+c = 299792.458 # km/s

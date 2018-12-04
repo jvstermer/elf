@@ -4,7 +4,7 @@ import numpy as np
 from configparser import ConfigParser
 import iminuit
 import matplotlib.pyplot as plt
-from py.qsoemission import likelihood, line_models
+from elf import likelihood, line_models
 
 from . import const
 
@@ -47,12 +47,13 @@ def get_parnames(model_label, system, model):
     else:
         pars_model = get_pars(model)
         noise_label = get_system_values(system, 'bkg model', 'bkg')
+        degree = int(get_system_values(system, 'bkg model', 'deg'))
         noise = getattr(line_models, noise_label)
-        pars_noise = get_pars(noise)
+        pars_noise = ['a_{}'.format(i) for i in range(degree)]
         noise = line_models.line_model(noise, pars_noise)
         
     model = line_models.line_model(model, pars_model)
-    return model, noise, noise_label, pars_model, pars_noise
+    return model, noise, noise_label+str(degree), pars_model, pars_noise
         
 def window(z, wave, flux, ivar, line_id, range_window):
     '''
@@ -131,9 +132,31 @@ def init_model(wave, flux, window, model, model_label):
         init_pars = {x:y for x,y in zip(par_names, tik)}
         plt.plot(x_node, tik,'.k')
     else:
-        init_pars = {x:y for x,y in zip(par_names, [1, wave.mean(), 10, 0, 0])}
-        x_node = None
+        init_pars = {x:y for x,y in zip(par_names, [1, wave.mean(), 10])}
         if model_label == 'asym_lorentzian':
             init_pars['c2'] = 10
+        x_node = None
     return x_node, init_pars
+
+def disregard_depleted_bins(values, bin_count, fraction):
+        """
+        creates mask to take into account bins with more than 'fraction'% of the data points
+        Arguments :
+            values -- the data to plot (numpy array)
+            bin_count -- number of bins (int)
+            fraction -- fraction of data points in bin for it to be taken into account (int)
+        
+        Returns:
+            mask -- mask velocity differences w/ less than num_point / fraction occurences
+        """
+        ntot, bin_edges = np.histogram(values, bins=bin_count)
+        non_empty = ntot > np.sum(ntot)/fraction
+        bin_edges = bin_edges[1:][non_empty]
+        mask = values < bin_edges
+        
+        n, bin_edges = np.histogram(values[mask], bins=bin_count)
+        non_empty = n > np.sum(ntot)/fraction
+        bin_edges = bin_edges[1:][non_empty]
+        mask = values < bin_edges.max()
+        return mask
     
