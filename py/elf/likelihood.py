@@ -43,7 +43,6 @@ def new_like(*args, **kwargs):
      
     line = kwargs['line']
     ivar = kwargs['ivar']
-    #print(line)
     
     mask = ivar != 0
     ivar = ivar[mask]
@@ -55,9 +54,7 @@ def new_like(*args, **kwargs):
     y = sps.erfc(flux / ( np.sqrt(2) * ivar)) - sps.erfc((flux - v) / ( np.sqrt(2) * ivar))
     
     mask1 = y != 0
-    
-    x = np.sum(np.log(ivar[mask1]) + np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
-    
-    return x
+
+    return np.sum(np.log(ivar[mask1]) + np.log(np.abs(v[mask1])) - np.log(np.abs(y[mask1])))
     
 

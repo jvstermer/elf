@@ -18,9 +18,13 @@ def add(*args, **kwargs ):
         x += noise(*[p for p in args[len(model.parnames):]], **kwargs)
     return x
 
-def linear( d, e, **kwargs):
+def polynomial(*args, **kwargs):
     wave = kwargs['wave']
-    return d * wave + e
+    
+    res = 0
+    for index, coeff in enumerate(args):
+        res += coeff * wave** index
+    return res 
 
 def gaussian(a, b, c,**kwargs):
     #takes array of values

@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import matplotlib.pyplot as plt
+from configparser import ConfigParser
+import sys
+import fitsio
+import numpy as np
+import iminuit
+import glob
+import time
+import scipy.interpolate as interpolate
+from elf import io, utils, qso, line_models, likelihood, const
+from functools import partial
+
+c = const.c
+
+list_files = glob.glob('new_z/*.fits')
+for filename in list_files[1:2]:
+    #print(filename)
+
+    h = fitsio.FITS(filename)
+
+    col = np.array(h[1].get_colnames())
+    ma = np.array(['z' in p for p in col])
+
+    for num,i in enumerate(col[ma]):
+        for j in col[ma][num+1:]:
+
+            line_1 =  h[1][i][:]
+            line_2 =  h[1][j][:]
+            mask = (line_1 > 0) & ( line_2 > 0)
+            vel_diff = np.abs( line_1[mask] - line_2[mask] ) / (1 + line_1[mask]) * c
+            
+            mask2 = utils.disregard_depleted_bins(vel_diff, 100, 10)
+            plt.hist( vel_diff[mask2], 100, label ='{} - {}'.format(i,j), alpha = .5,density = True)
+
+            plt.title(filename)
+            plt.legend()
+            plt.show()
+    #plt.figure()"""
+
