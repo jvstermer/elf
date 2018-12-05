@@ -18,7 +18,7 @@ if len(sys.argv) != 2:
     sys.exit(0)
 
 z_file = utils.get_system_values(sys.argv[1], 'input','z_file')
-#print("INFO: reading z_file from {}".format(z_file))
+print("INFO: reading z_file from {}".format(z_file))
 z_dict = io.read_drq(z_file)
 
 method = utils.get_system_values(sys.argv[1], 'likelihood method', 'method')
@@ -43,17 +43,14 @@ add = line_models.line_model(line_models.add, parnames)
 
 window = utils.get_system_values(sys.argv[1], 'scan', 'window')
 window = float(window)
-#print("INFO: window to fit: {} (Angstrom)".format(window))
+print("INFO: window to fit: {} (Angstrom)".format(window))
 
 line_dict = const.line_dict
 
 list_file = glob.glob( utils.get_system_values(sys.argv[1],'input','filename'))
 
-<<<<<<< HEAD
 for file_to_open in list_file[4:5]:
-=======
-for file_to_open in list_file[3:5]:
->>>>>>> changes
+
     filename = fitsio.FITS(file_to_open)
     
     print("INFO: reading data from {}".format(file_to_open))
@@ -63,9 +60,9 @@ for file_to_open in list_file[3:5]:
         qso1= qso.qso(filename, qso_id)
         if qso1.id in z_dict:
             z = z_dict[qso1.id]
-            #plt.plot(qso1.wave, qso1.flux)
+            plt.plot(qso1.wave, qso1.flux)
 
-            #print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
+            print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
 
             for l in const.emission_lines:
                 wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
@@ -76,16 +73,16 @@ for file_to_open in list_file[3:5]:
                     line_dict[l+'_err'].append(-1.)
                     continue
                 
-                x_node, init_pars = utils.init_model(wa, fl, window, add, model_label)
+                x_node, init_pars = utils.init_model(wa, fl, window, model, model_label, noise, noise_label)
     
                 m,_ = utils.double_minimize(like, add, model, wa, fl, iv, noise, x_node, like_0, **init_pars)
                 print("{} {} : {}".format(method, l, utils.get_chi(like, add, model, m, wa, fl, iv, noise, x_node)))  
-                #utils.plot_fit(wa, add, model, noise, m, 'r', x_node)
+                utils.plot_fit(wa, add, model, noise, m, 'r', x_node)
                 line_dict = io.write_in_dict(model_label, model, line_dict, l, m, wa, x_node)
-        #plt.figure()
+        plt.figure()
      
     print("INFO: done reading data from {}".format(file_to_open))
-#plt.show() 
+plt.show() 
 print(time.time() - t1)
 io.write_fits(utils.get_system_values(sys.argv[1],'output','name')+'/'+out_name+'restricted'+'.fits', line_dict)
 

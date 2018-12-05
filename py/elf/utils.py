@@ -47,13 +47,18 @@ def get_parnames(model_label, system, model):
     else:
         pars_model = get_pars(model)
         noise_label = get_system_values(system, 'bkg model', 'bkg')
-        degree = int(get_system_values(system, 'bkg model', 'deg'))
         noise = getattr(line_models, noise_label)
-        pars_noise = ['a_{}'.format(i) for i in range(degree)]
+        if noise_label == 'spl':
+            nodes = int(get_system_values(system, 'line model', 'nodes'))
+            pars_noise = ['par_{}'.format(i) for i in range(nodes)]
+        else:
+            degree = int(get_system_values(system, 'bkg model', 'deg'))
+            pars_noise = ['a_{}'.format(i) for i in range(degree)]
+            noise_label += str(degree)
         noise = line_models.line_model(noise, pars_noise)
         
     model = line_models.line_model(model, pars_model)
-    return model, noise, noise_label+str(degree), pars_model, pars_noise
+    return model, noise, noise_label, pars_model, pars_noise
         
 def window(z, wave, flux, ivar, line_id, range_window):
     '''
@@ -121,9 +126,11 @@ def rebin(x, wind, wave, flux):
     flux = A.dot(flux)
     return flux
 
-def init_model(wave, flux, window, model, model_label):
+def init_model(wave, flux, window, model, model_label, noise, noise_label):
     par_names = model.parnames
-    if model_label == 'spl':
+    if model_label == 'spl' or noise_label == 'spl':
+        if noise_label == 'spl':
+            par_names = noise.parnames
         pos_max = wave[np.where(flux == flux.max())[0][0]]
         x_node = np.arange(pos_max - window, pos_max + window, 2*window/len(par_names))
         if len(x_node) != len(par_names):
@@ -131,32 +138,18 @@ def init_model(wave, flux, window, model, model_label):
         tik = rebin(x_node, 10, wave, flux)
         init_pars = {x:y for x,y in zip(par_names, tik)}
         plt.plot(x_node, tik,'.k')
-    else:
-        init_pars = {x:y for x,y in zip(par_names, [1, wave.mean(), 10])}
+        
+    if model_label != 'spl':
+        par_names = model.parnames
+        init = {x:y for x,y in zip(par_names, [1, wave.mean(), 10])}
+        if noise_label == 'spl':
+            init_pars.update(init)
+        else:
+            init_pars = init
+            x_node = None
         if model_label == 'asym_lorentzian':
             init_pars['c2'] = 10
-        x_node = None
+            
     return x_node, init_pars
 
-def disregard_depleted_bins(values, bin_count, fraction):
-        """
-        creates mask to take into account bins with more than 'fraction'% of the data points
-        Arguments :
-            values -- the data to plot (numpy array)
-            bin_count -- number of bins (int)
-            fraction -- fraction of data points in bin for it to be taken into account (int)
-        
-        Returns:
-            mask -- mask velocity differences w/ less than num_point / fraction occurences
-        """
-        ntot, bin_edges = np.histogram(values, bins=bin_count)
-        non_empty = ntot > np.sum(ntot)/fraction
-        bin_edges = bin_edges[1:][non_empty]
-        mask = values < bin_edges
-        
-        n, bin_edges = np.histogram(values[mask], bins=bin_count)
-        non_empty = n > np.sum(ntot)/fraction
-        bin_edges = bin_edges[1:][non_empty]
-        mask = values < bin_edges.max()
-        return mask
     
