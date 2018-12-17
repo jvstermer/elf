@@ -5,7 +5,7 @@ from configparser import ConfigParser
 import sys
 import fitsio
 import numpy as np
-import iminuit
+#import iminuit
 import glob
 import time
 import scipy.interpolate as interpolate
@@ -18,21 +18,21 @@ if len(sys.argv) != 2:
     sys.exit(0)
 
 z_file = utils.get_system_values(sys.argv[1], 'input','z_file')
-print("INFO: reading z_file from {}".format(z_file))
+#print("INFO: reading z_file from {}".format(z_file))
 z_dict = io.read_drq(z_file)
 
 method = utils.get_system_values(sys.argv[1], 'likelihood method', 'method')
-print("INFO: using likelihood {}".format(method))
+#print("INFO: using likelihood {}".format(method))
 like = getattr(likelihood, method)
 
 like_0 = utils.pick_method(method)
 
 model_label = utils.get_system_values(sys.argv[1], 'line model', 'model')
-print("INFO: using line model {}".format(model_label))
+#print("INFO: using line model {}".format(model_label))
 model = getattr(line_models, model_label)
 
 model, noise, noise_label, pars_model, pars_noise = utils.get_parnames(model_label, sys.argv[1], model)
-print("INFO: using baseline model {}".format(noise_label))
+#print("INFO: using baseline model {}".format(noise_label))
 
 out_name = method+'__'+ model_label
 if noise_label != None:
@@ -43,46 +43,52 @@ add = line_models.line_model(line_models.add, parnames)
 
 window = utils.get_system_values(sys.argv[1], 'scan', 'window')
 window = float(window)
-print("INFO: window to fit: {} (Angstrom)".format(window))
+#print("INFO: window to fit: {} (Angstrom)".format(window))
 
 line_dict = const.line_dict
 
 list_file = glob.glob( utils.get_system_values(sys.argv[1],'input','filename'))
-
-for file_to_open in list_file[4:5]:
+red = []
+for file_to_open in list_file:#[4:5]:
 
     filename = fitsio.FITS(file_to_open)
     
-    print("INFO: reading data from {}".format(file_to_open))
+    #print("INFO: reading data from {}".format(file_to_open))
     
     for qso_id in range(len(filename[0][:])):
         print('qso',qso_id+1,'/',len(filename[0][:]))
         qso1= qso.qso(filename, qso_id)
         if qso1.id in z_dict:
-            z = z_dict[qso1.id]
-            plt.plot(qso1.wave, qso1.flux)
+            red.append(z_dict[qso1.id])
+            
+ 
+            """#plt.plot(qso1.wave, qso1.flux)
 
-            print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
+            #print("INFO: fitting qso with thing_id {} and redshift {}".format(qso1.id, z))
 
             for l in const.emission_lines:
                 wa, fl, iv = utils.window(z, qso1.wave, qso1.flux, qso1.ivar, l, window)
 
-                if len(wa)<10:
-                    print("line {} not within observed wavelength range, skipping".format(l))
-                    line_dict[l+'_z'].append(-1.)
-                    line_dict[l+'_err'].append(-1.)
+                if len(wa)<10 or any(fl) == 0:
+                    #print("line {} not / no flux within observed wavelength range, skipping".format(l))
+                    line_dict[l+'_z'].append(np.nan)
+                    line_dict[l+'_err'].append(np.nan)
                     continue
                 
                 x_node, init_pars = utils.init_model(wa, fl, window, model, model_label, noise, noise_label)
     
                 m,_ = utils.double_minimize(like, add, model, wa, fl, iv, noise, x_node, like_0, **init_pars)
-                print("{} {} : {}".format(method, l, utils.get_chi(like, add, model, m, wa, fl, iv, noise, x_node)))  
-                utils.plot_fit(wa, add, model, noise, m, 'r', x_node)
+                
+                #print("{} {} : {}".format(method, l, utils.get_chi(like, add, model, m, wa, fl, iv, noise, x_node)))  
+                #utils.plot_fit(wa, add, model, noise, m, 'r', x_node)
                 line_dict = io.write_in_dict(model_label, model, line_dict, l, m, wa, x_node)
-        plt.figure()
+        #plt.figure()
      
     print("INFO: done reading data from {}".format(file_to_open))
-plt.show() 
+#plt.show() 
 print(time.time() - t1)
-io.write_fits(utils.get_system_values(sys.argv[1],'output','name')+'/'+out_name+'restricted'+'.fits', line_dict)
+io.write_fits(utils.get_system_values(sys.argv[1],'output','name')+'/'+out_name+'_file_3-4'+'.fits', line_dict)"""
+fits = fitsio.FITS('new_z/catalogue_z.fits','rw', clobber = True)
+fits.write(np.array(red), names = 'z')
+fits.close() 
 

@@ -40,20 +40,25 @@ def get_parnames(model_label, system, model):
     
     if model_label == 'spl':
         nodes = int(get_system_values(system, 'line model', 'nodes'))
-        pars_model = ['par_{}'.format(i) for i in range(nodes)]
+        pars_model = ['l_{}'.format(i) for i in range(nodes)]
         noise = None
         pars_noise = []
         noise_label = None
     else:
-        pars_model = get_pars(model)
+        if model_label == 'gaussian':
+            pars_model = ['l_{}'.format(i) for i in range(3)]
+        else:
+            pars_model = get_pars(model)
         noise_label = get_system_values(system, 'bkg model', 'bkg')
         noise = getattr(line_models, noise_label)
         if noise_label == 'spl':
             nodes = int(get_system_values(system, 'line model', 'nodes'))
-            pars_noise = ['par_{}'.format(i) for i in range(nodes)]
+            pars_noise = ['n_{}'.format(i) for i in range(nodes)]
+        if noise_label == 'gaussian':
+            pars_noise = ['n_{}'.format(i) for i in range(3)]
         else:
             degree = int(get_system_values(system, 'bkg model', 'deg'))
-            pars_noise = ['a_{}'.format(i) for i in range(degree)]
+            pars_noise = ['n_{}'.format(i) for i in range(degree)]
             noise_label += str(degree)
         noise = line_models.line_model(noise, pars_noise)
         
@@ -137,7 +142,7 @@ def init_model(wave, flux, window, model, model_label, noise, noise_label):
             x_node = x_node[1:]
         tik = rebin(x_node, 10, wave, flux)
         init_pars = {x:y for x,y in zip(par_names, tik)}
-        plt.plot(x_node, tik,'.k')
+        #plt.plot(x_node, tik,'.k')
         
     if model_label != 'spl':
         par_names = model.parnames

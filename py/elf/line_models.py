@@ -26,7 +26,7 @@ def polynomial(*args, **kwargs):
         res += coeff * wave** index
     return res 
 
-def gaussian(a, b, c,**kwargs):
+'''def gaussian(a, b, c,**kwargs):
     #takes array of values
     # a : amplitude of the gaussian
     # b : mean of the gaussian
@@ -34,8 +34,20 @@ def gaussian(a, b, c,**kwargs):
     # returns gaussaian
 
     wave = kwargs['wave']
-    return a*np.exp(-(wave-b)**2/2/c**2 )
+    return a*np.exp(-(wave-b)**2/2/c**2 )'''
 
+
+def gaussian(*pars,**kwargs):
+    #takes array of values
+    # a : amplitude of the gaussian
+    # b : mean of the gaussian
+    # c : standard deviation of the gaussian
+    # returns gaussaian
+
+    wave = kwargs['wave']
+    return pars[0]*np.exp(-(wave-pars[1])**2/2/pars[2]**2 )
+    
+    
 def lorentzian(a, b, c, **kwargs):
     #takes array of values
     # a : amplitude of the lorentzian
