@@ -4,9 +4,7 @@ import numpy as np
 from configparser import ConfigParser
 import iminuit
 import matplotlib.pyplot as plt
-from elf import likelihood, line_models
-
-from . import const
+from elf import likelihood, line_models as lm, const, io
 
 def go_to_lf(wave, z):
     '''
@@ -36,21 +34,52 @@ def pick_method(method):
 def get_pars(model):
     return [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
     
-def unk(system, which_type, name_par):
+def unk(system, which_type):
 
+    dic = {'mod': 'a', 'bkg' : 'n'}
+    name_par = dic[which_type]
+        
     label = get_system_values(system, 'model', which_type)
-    func = getattr(line_models, label)
+    func = getattr(lm, label)
     print("INFO: using {} {}".format(which_type, label))
-    
-    if label == 'spl' :
-        which_type = 'spl'
-         
-    num = int(get_system_values(system, 'num pars', which_type))
+
+    if label in const.dict_num_pars.keys():
+        num = const.dict_num_pars[label] 
+    else:   
+        num = int(get_system_values(system, 'num pars', label))
+        
     pars = [name_par+'{}'.format(i) for i in range(num)]
-    cla = line_models.line_model(func, pars, label+'+'+str(num))
+    cla = lm.line_model(func, pars, label+'+'+str(num))
     
     return cla
+
+def get_z_file(system, mode):
+    z_file = get_system_values(system, 'input','z_file')
+    #print("INFO: reading z_file from {}".format(z_file))
+    if mode == "spplate":
+        return z_file
+    elif mode == 'pix':
+        return io.dict_drq(z_file)
+
+def get_fit_model(system):
+
+    method = get_system_values(system, 'likelihood method', 'method')
+    #print("INFO: using likelihood {}".format(method))
+    like = getattr(likelihood, method)
+
+    like_0 = pick_method(method)
         
+    model = unk(system, 'mod')
+
+    if 'spl' in model.label:
+        noise = lm.line_model(None, [], '')
+        add = model
+    else:
+        noise = unk(system, 'bkg')
+        add = lm.line_model(lm.add, model.parnames + noise.parnames, 
+                            model.label+'__'+noise.label)
+    return add, model, noise, like, like_0, method
+      
 def window(z, wave, flux, ivar, line_id, range_window):
     '''
     Restrict the data to a window around an emission line
@@ -138,7 +167,6 @@ def get_init_val(func, wave, flux, window):
       
     return x_node, init_pars
     
- 
 def init_model(func1, func2, wave, flux, window):
     
     x1, ini1 = get_init_val(func1, wave, flux, window)
@@ -150,3 +178,4 @@ def init_model(func1, func2, wave, flux, window):
         ini1.update(ini2)
         return x2, ini1
     
+

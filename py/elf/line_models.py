@@ -58,10 +58,12 @@ def asym_lorentzian(*args, **kwargs):
     wave = kwargs['wave']
     
     f = lorentzian(args[0], args[1], args[2],wave = wave)
-    f[np.where(wave>b)] =  lorentzian(args[0], args[1], args[3], wave = wave[np.where(wave>b)])
+    f[np.where(wave>args[1])] =  lorentzian(args[0], args[1], args[3], wave = wave[np.where(wave>args[1])])
     return f
         
 def spl(*pars, **kwargs):
         wave = kwargs['wave']
         x = kwargs['x']
         return interpolate.splev( wave, interpolate.splrep(x, pars, s=0, k=3))
+        
+
