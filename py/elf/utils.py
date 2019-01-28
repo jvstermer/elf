@@ -4,9 +4,7 @@ import numpy as np
 from configparser import ConfigParser
 import iminuit
 import matplotlib.pyplot as plt
-from elf import likelihood, line_models
-
-from . import const
+from elf import likelihood, line_models as lm, const, io
 
 def go_to_lf(wave, z):
     '''
@@ -35,36 +33,53 @@ def pick_method(method):
 
 def get_pars(model):
     return [p for p in model.__code__.co_varnames[:model.__code__.co_argcount]]
-
-def get_parnames(model_label, system, model):
     
-    if model_label == 'spl':
-        nodes = int(get_system_values(system, 'line model', 'nodes'))
-        pars_model = ['l_{}'.format(i) for i in range(nodes)]
-        noise = None
-        pars_noise = []
-        noise_label = None
+def unk(system, which_type):
+
+    dic = {'mod': 'a', 'bkg' : 'n'}
+    name_par = dic[which_type]
+        
+    label = get_system_values(system, 'model', which_type)
+    func = getattr(lm, label)
+    print("INFO: using {} {}".format(which_type, label))
+
+    if label in const.dict_num_pars.keys():
+        num = const.dict_num_pars[label] 
+    else:   
+        num = int(get_system_values(system, 'num pars', label))
+        
+    pars = [name_par+'{}'.format(i) for i in range(num)]
+    cla = lm.line_model(func, pars, label+'+'+str(num))
+    
+    return cla
+
+def get_z_file(system, mode):
+    z_file = get_system_values(system, 'input','z_file')
+    #print("INFO: reading z_file from {}".format(z_file))
+    if mode == "spplate":
+        return z_file
+    elif mode == 'pix':
+        return io.dict_drq(z_file)
+
+def get_fit_model(system):
+
+    method = get_system_values(system, 'likelihood method', 'method')
+    #print("INFO: using likelihood {}".format(method))
+    like = getattr(likelihood, method)
+
+    like_0 = pick_method(method)
+        
+    model = unk(system, 'mod')
+
+    if 'spl' in model.label:
+        noise = lm.line_model(None, [], '')
+        add = model
     else:
-        if model_label == 'gaussian':
-            pars_model = ['l_{}'.format(i) for i in range(3)]
-        else:
-            pars_model = get_pars(model)
-        noise_label = get_system_values(system, 'bkg model', 'bkg')
-        noise = getattr(line_models, noise_label)
-        if noise_label == 'spl':
-            nodes = int(get_system_values(system, 'line model', 'nodes'))
-            pars_noise = ['n_{}'.format(i) for i in range(nodes)]
-        if noise_label == 'gaussian':
-            pars_noise = ['n_{}'.format(i) for i in range(3)]
-        else:
-            degree = int(get_system_values(system, 'bkg model', 'deg'))
-            pars_noise = ['n_{}'.format(i) for i in range(degree)]
-            noise_label += str(degree)
-        noise = line_models.line_model(noise, pars_noise)
-        
-    model = line_models.line_model(model, pars_model)
-    return model, noise, noise_label, pars_model, pars_noise
-        
+        noise = unk(system, 'bkg')
+        add = lm.line_model(lm.add, model.parnames + noise.parnames, 
+                            model.label+'__'+noise.label)
+    return add, model, noise, like, like_0, method
+      
 def window(z, wave, flux, ivar, line_id, range_window):
     '''
     Restrict the data to a window around an emission line
@@ -89,31 +104,29 @@ def window(z, wave, flux, ivar, line_id, range_window):
         
 def minimize(likelihood, line, model, wave, flux, ivar, noise=None, x = None, **init_pars):
 
-    like = partial(likelihood, line = line, wave = wave, flux = flux, ivar = ivar, x = x, model = model, noise = noise)
-    
-    par_names = line.parnames
+    like = partial(likelihood, line = line, wave = wave, flux = flux, ivar = ivar, x = x, model = model, noise = noise) 
     
     m = iminuit.Minuit(like, 
-                       forced_parameters = par_names, 
+                       forced_parameters = line.parnames, 
                        errordef = 1, pedantic = False, 
                        **init_pars)
     fmin  = m.migrad()
     return m, fmin
 
-def double_minimize(likelihood1, line, model,  wave, flux, ivar, noise=None, x = None, likelihood2 = None, **init_pars):
+def double_minimize(likelihood1, line, model,  wave, flux, ivar, noise = None, x = None, likelihood2 = None, **init_pars):
+
     if likelihood2 == None:
         m, fmin = minimize(likelihood1, line, model, wave, flux, ivar, noise, x, **init_pars)
     
     else:
         m, fmin = minimize(likelihood2, line, model, wave, flux, ivar, noise, x, **init_pars)
-        par_names = line.parnames
-        init_pars2 = {x:y for x,y in zip(par_names, m.values.values())}
+        init_pars2 = {x:y for x,y in zip(line.parnames, m.values.values())}
         
         m, fmin = minimize(likelihood1, line, model, wave, flux, ivar, noise, x, **init_pars2)
 
     return m, fmin
 
-def plot_fit(wave,line, model, noise, m, color, x=None, lab=None):
+def plot_fit(wave,line, model, m, color, noise = None, x=None, lab=None):
     plt.plot(wave, line(*[m.values[p] for p in m.parameters], wave=wave, x=x, model=model, noise= noise), color, lw=2, alpha = .8, label = lab)
     
 def get_chi(like, line, model, m, wave, flux, ivar, noise = None, x=None):
@@ -131,30 +144,38 @@ def rebin(x, wind, wave, flux):
     flux = A.dot(flux)
     return flux
 
-def init_model(wave, flux, window, model, model_label, noise, noise_label):
-    par_names = model.parnames
-    if model_label == 'spl' or noise_label == 'spl':
-        if noise_label == 'spl':
-            par_names = noise.parnames
-        pos_max = wave[np.where(flux == flux.max())[0][0]]
-        x_node = np.arange(pos_max - window, pos_max + window, 2*window/len(par_names))
-        if len(x_node) != len(par_names):
-            x_node = x_node[1:]
-        tik = rebin(x_node, 10, wave, flux)
-        init_pars = {x:y for x,y in zip(par_names, tik)}
-        #plt.plot(x_node, tik,'.k')
-        
-    if model_label != 'spl':
-        par_names = model.parnames
-        init = {x:y for x,y in zip(par_names, [1, wave.mean(), 10])}
-        if noise_label == 'spl':
-            init_pars.update(init)
-        else:
-            init_pars = init
-            x_node = None
-        if model_label == 'asym_lorentzian':
-            init_pars['c2'] = 10
-            
-    return x_node, init_pars
-
+def get_init_val(func, wave, flux, window):
     
+    if 'polynomial' in func.label:
+        init_val = {}
+        x_node = None
+       
+    elif 'spl' in func.label:
+        pos_max = wave[np.where(flux == flux.max())[0][0]]
+        x_node = np.arange(pos_max - window, pos_max + window, 2*window/len(func.parnames))
+        if len(x_node) != len(func.parnames):
+            x_node = x_node[1:]
+        init_val = rebin(x_node, 10, wave, flux)
+        
+    else:
+        init_val =  [1, wave.mean(), 10]
+        x_node = None
+        while len(init_val) < len(func.parnames):
+            init_val.append(10)
+            
+    init_pars = {x:y for x,y in zip(func.parnames, init_val)}
+      
+    return x_node, init_pars
+    
+def init_model(func1, func2, wave, flux, window):
+    
+    x1, ini1 = get_init_val(func1, wave, flux, window)
+    
+    if 'spl' in func1.label:
+        return x1, ini1
+    else:
+        x2, ini2 = get_init_val(func2, wave, flux, window)
+        ini1.update(ini2)
+        return x2, ini1
+    
+

@@ -12,42 +12,64 @@ import scipy.interpolate as interpolate
 from elf import io, utils, qso, line_models, likelihood, const
 from functools import partial
 
+def set_lim(vel_diff, frac):
+        lim = vel_diff.min()
+        mask = np.abs(vel_diff) >= lim
+        while len(vel_diff[mask]) > len(vel_diff) * frac  and lim < vel_diff.max():
+            
+            lim += 1000
+            mask = np.abs(vel_diff) >= lim
+        return lim
+        
+def plot_par(filename):
+    plt.title(filename[6:-5])
+    plt.xlabel('$velocity\ difference\ [km.s^{-1}]$')
+    #plt.yscale('log')
+    plt.legend()
+    #plt.figure()
+    
 c = const.c
-
+red = fitsio.FITS('new_z/catalogue_z')
 list_files = glob.glob('new_z/*.fits')
-for filename in list_files[2:3]:
+plt.grid()
+
+histt = ["bar", "step", "step"]
+alph = [1, 1, 1]
+hatch= [None, '//',None]
+lin = [1,1,2]
+for filename in list_files[2:]:
     #print(filename)
 
     h = fitsio.FITS(filename)
 
     col = np.array(h[1].get_colnames())
     ma = np.array(['z' in p for p in col])
-
+    
     """for num,i in enumerate(col[ma]):
         for j in col[ma][num+1:]:"""
-    i = 'Lya_z'
-    j = 'CIV_z'
     
-    line_1 =  h[1][i][:]
-    line_2 =  h[1][j][:]
-    mask = (line_1 > 0) & ( line_2 > 0)
-    vel_diff = np.abs( line_1[mask] - line_2[mask] ) / (1 + line_1[mask]) * c
-    
-    """
-    lim = vel_diff.min()
-    mask = vel_diff >= lim
-    while len(np.where(mask == True)[0]) > len(vel_diff) * .1  and lim < vel_diff.max():
+    i = 'MgII_z'       
+    line_1 = h[1][i][:]
+    #line_1 =  red[0][:]
+    col = col[ma]
+    ma = col != 'MgII_z'
+    for num,j in enumerate(col[ma]):
+        line_2 =  h[1][j][:]
+        #line_1 =  red[0][:]
+        mask = (line_1 > 0) & ( line_2 > 0)
+
+        dv = (line_1[mask] - line_2[mask] ) / (1 + line_1[mask]) * c
+
+        """frac = .2
+        lim = set_lim(dv, frac)
+
+        mask = np.abs(dv) <= lim
+        print("{}% of the points have dv < {} km/s".format( len(dv[mask])*100/len(dv), lim))"""
+
+        n, bins, _ = plt.hist(dv, 200, label = "{} - {} ".format(i,j),histtype=histt[num], range=(-10000,10000), density = True, alpha = alph[num], hatch = hatch[num], linewidth= lin[num])
+        plot_par(filename)
         
-        lim += 1000
-        mask = vel_diff >= lim"""
-            
-    lim = 25000
-    _, bins, _ = plt.hist(np.clip(vel_diff, vel_diff.min(), lim), 100, density = True, alpha = .6, label = "{} - {}".format(i, j))
-    plt.title(filename[6:-5])
-    plt.xlabel('$velocity\ difference\ [km.s^{-1}]$')
-    plt.yscale('log')
-    plt.legend()
-    #plt.figure()
-    plt.show()
-    
+plt.show()
+
+
 

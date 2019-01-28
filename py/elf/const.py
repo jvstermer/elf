@@ -14,6 +14,14 @@ line_dict = {
     'CIV_err' : [],
     'MgII_z' : [],
     'MgII_err' : [],
+    'cat_z' : [],
 }
 
 c = 299792.458 # km/s
+
+# number of parameters for set functions
+dict_num_pars = {
+    'gaussian'          : 3, 
+    'lorentzian'        : 3, 
+    'asym_lorentzian'   : 4, 
+    }

@@ -2,9 +2,10 @@ import numpy as np
 import scipy.interpolate as interpolate
 
 class line_model:
-    def __init__(self, func, parnames):
+    def __init__(self, func, parnames, lab):
         self.parnames = parnames
         self.func = func
+        self.label = lab
         
     def __call__(self, *pars, **kwargs):
         return self.func(*pars, **kwargs)
@@ -26,17 +27,6 @@ def polynomial(*args, **kwargs):
         res += coeff * wave** index
     return res 
 
-'''def gaussian(a, b, c,**kwargs):
-    #takes array of values
-    # a : amplitude of the gaussian
-    # b : mean of the gaussian
-    # c : standard deviation of the gaussian
-    # returns gaussaian
-
-    wave = kwargs['wave']
-    return a*np.exp(-(wave-b)**2/2/c**2 )'''
-
-
 def gaussian(*pars,**kwargs):
     #takes array of values
     # a : amplitude of the gaussian
@@ -46,9 +36,8 @@ def gaussian(*pars,**kwargs):
 
     wave = kwargs['wave']
     return pars[0]*np.exp(-(wave-pars[1])**2/2/pars[2]**2 )
-    
-    
-def lorentzian(a, b, c, **kwargs):
+
+def lorentzian(*args, **kwargs):
     #takes array of values
     # a : amplitude of the lorentzian
     # b : mean of the lorentzian
@@ -56,9 +45,9 @@ def lorentzian(a, b, c, **kwargs):
     # returns lorentzian
     
     wave = kwargs['wave']
-    return a / (1+((wave-b)*2 /c)**2)
+    return args[0] / (1+((wave-args[1])*2 /args[2])**2)
 
-def asym_lorentzian(a, b, c, c2, **kwargs):
+def asym_lorentzian(*args, **kwargs):
     #takes array of values
     # a : amplitude of the lorentzian
     # b : mean of the lorentzian
@@ -68,11 +57,13 @@ def asym_lorentzian(a, b, c, c2, **kwargs):
     
     wave = kwargs['wave']
     
-    f = lorentzian(a, b, c,wave = wave)
-    f[np.where(wave>b)] =  lorentzian(a, b, c2, wave = wave[np.where(wave>b)])
+    f = lorentzian(args[0], args[1], args[2],wave = wave)
+    f[np.where(wave>args[1])] =  lorentzian(args[0], args[1], args[3], wave = wave[np.where(wave>args[1])])
     return f
         
 def spl(*pars, **kwargs):
         wave = kwargs['wave']
         x = kwargs['x']
         return interpolate.splev( wave, interpolate.splrep(x, pars, s=0, k=3))
+        
+
